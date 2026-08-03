@@ -48,10 +48,14 @@ export default async function handler(req, res) {
     const input = validateInput(req.body);
     const financials = calculateFinancials(input);
     const payload = await callGemini({
-      apiKey,
-      model: process.env.GEMINI_TEXT_MODEL || 'gemini-2.5-flash',
-      prompt: buildStrategyPrompt(input, financials),
-      generationConfig: { responseMimeType: 'application/json', responseJsonSchema: strategyJsonSchema });
+  apiKey,
+  model: process.env.GEMINI_TEXT_MODEL,
+  prompt: buildStrategyPrompt(input, financials),
+  generationConfig: {
+    responseMimeType: 'application/json',
+    responseJsonSchema: strategyJsonSchema,
+  },
+});
     const raw = extractText(payload);
     if (!raw) throw new Error('O Gemini retornou uma resposta vazia.');
     const strategy = JSON.parse(raw);
