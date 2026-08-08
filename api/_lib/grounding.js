@@ -26,6 +26,31 @@ function unsupportedRiskThreshold(risk, input) {
   return !declared.includes(threshold.toLowerCase());
 }
 
+function sanitizeUnsupportedServiceSpeed(value, input) {
+  const declared = [
+    input.offer,
+    input.differential,
+    input.proof,
+    input.availableAssets,
+    input.restrictions,
+  ].map(asText).join(' ');
+  const hasDeclaredSpeed = /\b(?:atendimento|resposta|retorno)\s+(?:r[aá]pid[oa]s?|imediat[oa]s?)\b/i.test(declared);
+  if (hasDeclaredSpeed) return value;
+
+  const sanitize = (item) => {
+    if (typeof item === 'string') {
+      return item.replace(/\b(atendimento|resposta|retorno)\s+(?:r[aá]pid[oa]s?|imediat[oa]s?)\b/gi, '$1');
+    }
+    if (Array.isArray(item)) return item.map(sanitize);
+    if (item && typeof item === 'object') {
+      for (const [key, nested] of Object.entries(item)) item[key] = sanitize(nested);
+    }
+    return item;
+  };
+
+  return sanitize(value);
+}
+
 export function groundStrategy(strategy, input) {
   if (!strategy || typeof strategy !== 'object') return strategy;
   if (!strategy.offer || typeof strategy.offer !== 'object') return strategy;
@@ -49,5 +74,5 @@ export function groundStrategy(strategy, input) {
       : risk);
   }
 
-  return strategy;
+  return sanitizeUnsupportedServiceSpeed(strategy, input);
 }
