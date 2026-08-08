@@ -37,12 +37,28 @@ function validateInput(body) {
   };
 }
 
-function parseStrategy(raw) {
+export function parseStrategy(raw) {
   const cleaned = String(raw || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   const start = cleaned.indexOf('{');
   const end = cleaned.lastIndexOf('}');
   const json = start >= 0 && end > start ? cleaned.slice(start, end + 1) : cleaned;
-  const strategy = JSON.parse(json);
+  const repairedTrailingCommas = json.replace(/,\s*([}\]])/g, '$1');
+  const repairedUnquotedKeys = repairedTrailingCommas.replace(
+    /([{,]\s*)([A-Za-z_$][\w$-]*)(\s*:)/g,
+    '$1"$2"$3',
+  );
+  const candidates = [...new Set([json, repairedTrailingCommas, repairedUnquotedKeys])];
+  let strategy;
+  let lastError;
+  for (const candidate of candidates) {
+    try {
+      strategy = JSON.parse(candidate);
+      break;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (!strategy) throw lastError || new Error('O Gemini retornou JSON inválido.');
   if (!strategy || typeof strategy !== 'object' || !strategy.campaign || !strategy.offer) {
     throw new Error('O Gemini retornou uma campanha incompleta. Tente gerar novamente.');
   }
