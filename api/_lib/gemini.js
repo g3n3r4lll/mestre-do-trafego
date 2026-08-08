@@ -1,4 +1,4 @@
-const DEFAULT_TIMEOUT_MS = 55_000;
+const DEFAULT_TIMEOUT_MS = 35_000;
 
 export class GeminiApiError extends Error {
   constructor(message, { status = 500, code = '', model = '', details = null } = {}) {
