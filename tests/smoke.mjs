@@ -19,6 +19,7 @@ const groundingProbe = groundStrategy({
   risks: ['Se o atendimento demorar mais de 15 minutos, o CPA subirá.'],
   ads: [{ description: 'Atendimento rápido pelo WhatsApp' }],
   landingOrWhatsApp: { followUp: ['Retorno imediato aos leads interessados.'] },
+  creatives: [{ script: ['Imagem estática de alta conversão exibindo a oferta.'] }],
 }, {
   product: 'Plano Growth da Modelize AI',
   offer: 'Transforme fotos simples em um catálogo profissional. Primeiro mês por R$ 449,00.',
@@ -34,6 +35,7 @@ if (!groundingProbe.offer.guarantee.includes('Nenhuma garantia')) throw new Erro
 if (groundingProbe.risks[0].includes('15 minutos')) throw new Error('Guardrail de limite operacional inventado falhou.');
 if (groundingProbe.ads[0].description !== 'Atendimento pelo WhatsApp') throw new Error('Guardrail de velocidade de atendimento falhou.');
 if (groundingProbe.landingOrWhatsApp.followUp[0] !== 'Retorno aos leads interessados.') throw new Error('Guardrail de velocidade de follow-up falhou.');
+if (groundingProbe.creatives[0].script[0].includes('alta conversão')) throw new Error('Guardrail de claim de conversão falhou.');
 
 const strategy = {
   verdict: 'APROVAR', verdictReason: 'ok', executiveSummary: 'Resumo',
