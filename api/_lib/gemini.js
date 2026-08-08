@@ -137,7 +137,7 @@ function imageFromBlocks(blocks) {
     const mimeType = block.mime_type || block.mimeType || block.inlineData?.mimeType;
     const data = block.data || block.inlineData?.data;
     if (data && (block.type === 'image' || String(mimeType || '').startsWith('image/'))) {
-      return { data, mimeType: mimeType || 'image/png' };
+      return { data, mimeType: mimeType || 'image/jpeg' };
     }
     const nested = imageFromBlocks(block.content || block.outputs || block.parts);
     if (nested) return nested;
@@ -147,7 +147,7 @@ function imageFromBlocks(blocks) {
 
 export function extractImage(payload) {
   const direct = payload?.output_image;
-  if (direct?.data) return { data: direct.data, mimeType: direct.mime_type || direct.mimeType || 'image/png' };
+  if (direct?.data) return { data: direct.data, mimeType: direct.mime_type || direct.mimeType || 'image/jpeg' };
   return imageFromBlocks(payload?.outputs)
     || imageFromBlocks(payload?.steps)
     || imageFromBlocks(payload?.candidates?.[0]?.content?.parts);
