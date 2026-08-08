@@ -1,5 +1,5 @@
 import { requireAuth } from './_lib/auth.js';
-import { callGemini, extractText } from './_lib/gemini.js';
+import { callGemini, extractText, GeminiApiError } from './_lib/gemini.js';
 import { strategyJsonSchema } from './_lib/schema.js';
 import { buildStrategyPrompt } from './_lib/prompt.js';
 import { calculateFinancials } from '../shared/finance.js';
@@ -36,6 +36,47 @@ function validateInput(body) {
   };
 }
 
+function parseStrategy(raw) {
+  const cleaned = String(raw || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  const json = start >= 0 && end > start ? cleaned.slice(start, end + 1) : cleaned;
+  const strategy = JSON.parse(json);
+  if (!strategy || typeof strategy !== 'object' || !strategy.campaign || !strategy.offer) {
+    throw new Error('O Gemini retornou uma campanha incompleta. Tente gerar novamente.');
+  }
+  return strategy;
+}
+
+function isSchemaRejection(error) {
+  return error instanceof GeminiApiError
+    && error.status === 400
+    && /invalid argument|schema|response.?format/i.test(error.message);
+}
+
+async function generateStrategy({ apiKey, model, prompt }) {
+  const fallbackModels = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
+  try {
+    return await callGemini({
+      apiKey,
+      model,
+      prompt,
+      responseFormat: { type: 'text', mime_type: 'application/json', schema: strategyJsonSchema },
+      fallbackModels,
+    });
+  } catch (error) {
+    if (!isSchemaRejection(error)) throw error;
+    const fallbackPrompt = `${prompt}\n\nFORMATO JSON OBRIGATÓRIO\nRetorne somente JSON válido conforme este schema:\n${JSON.stringify(strategyJsonSchema)}`;
+    return callGemini({
+      apiKey,
+      model,
+      prompt: fallbackPrompt,
+      responseFormat: { type: 'text', mime_type: 'application/json' },
+      fallbackModels,
+    });
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -47,18 +88,12 @@ export default async function handler(req, res) {
   try {
     const input = validateInput(req.body);
     const financials = calculateFinancials(input);
-    const payload = await callGemini({
-  apiKey,
-  model: process.env.GEMINI_TEXT_MODEL,
-  prompt: buildStrategyPrompt(input, financials),
-  generationConfig: {
-    responseMimeType: 'application/json',
-    responseJsonSchema: strategyJsonSchema,
-  },
-});
-    const raw = extractText(payload);
-    if (!raw) throw new Error('O Gemini retornou uma resposta vazia.');
-    const strategy = JSON.parse(raw);
+    const payload = await generateStrategy({
+      apiKey,
+      model: process.env.GEMINI_TEXT_MODEL || 'gemini-3.6-flash',
+      prompt: buildStrategyPrompt(input, financials),
+    });
+    const strategy = parseStrategy(extractText(payload));
     if (!strategy.verdict || verdictRank[strategy.verdict] > verdictRank[financials.deterministicVerdict]) {
       strategy.verdict = financials.deterministicVerdict;
       strategy.verdictReason = financials.deterministicReason;
@@ -67,6 +102,8 @@ export default async function handler(req, res) {
     return res.status(200).json({ input, financials, strategy, generatedAt: new Date().toISOString() });
   } catch (error) {
     console.error(error);
-    return res.status(400).json({ error: error instanceof Error ? error.message : 'Falha ao gerar campanha.' });
+    const upstreamStatus = error instanceof GeminiApiError ? error.status : 400;
+    const status = upstreamStatus === 429 || upstreamStatus >= 500 ? 503 : 400;
+    return res.status(status).json({ error: error instanceof Error ? error.message : 'Falha ao gerar campanha.' });
   }
 }

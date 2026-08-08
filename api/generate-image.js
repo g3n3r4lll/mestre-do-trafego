@@ -1,5 +1,5 @@
 import { requireAuth } from './_lib/auth.js';
-import { callGemini, extractImage } from './_lib/gemini.js';
+import { callGemini, extractImage, GeminiApiError } from './_lib/gemini.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -13,14 +13,19 @@ export default async function handler(req, res) {
   if (prompt.length < 20) return res.status(400).json({ error: 'Prompt visual insuficiente.' });
   try {
     const payload = await callGemini({
-      apiKey, model: process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image', prompt,
-      generationConfig: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: '1:1' } },
+      apiKey,
+      model: process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image',
+      prompt,
+      responseFormat: { type: 'image', mime_type: 'image/png', aspect_ratio: '1:1' },
+      fallbackModels: ['gemini-3.1-flash-image', 'gemini-3.1-flash-lite-image'],
     });
     const image = extractImage(payload);
     if (!image) throw new Error('O modelo não retornou uma imagem.');
     return res.status(200).json({ dataUrl: `data:${image.mimeType};base64,${image.data}` });
   } catch (error) {
     console.error(error);
-    return res.status(400).json({ error: error instanceof Error ? error.message : 'Falha ao gerar imagem.' });
+    const upstreamStatus = error instanceof GeminiApiError ? error.status : 400;
+    const status = upstreamStatus === 429 || upstreamStatus >= 500 ? 503 : 400;
+    return res.status(status).json({ error: error instanceof Error ? error.message : 'Falha ao gerar imagem.' });
   }
 }
