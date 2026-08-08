@@ -1,8 +1,30 @@
 import analyze from '../api/analyze.js';
 import generateImage from '../api/generate-image.js';
+import { groundStrategy } from '../api/_lib/grounding.js';
 
 process.env.GEMINI_API_KEY = 'test-key';
 delete process.env.APP_PASSWORD;
+
+const groundingProbe = groundStrategy({
+  offer: {
+    promise: 'Catálogo de alta conversão',
+    mechanism: 'Tecnologia proprietária exclusiva',
+    guarantee: 'Sem fidelidade e com demonstração prévia',
+  },
+  risks: ['Se o atendimento demorar mais de 15 minutos, o CPA subirá.'],
+}, {
+  product: 'Plano Growth da Modelize AI',
+  offer: 'Transforme fotos simples em um catálogo profissional. Primeiro mês por R$ 449,00.',
+  differential: 'Modelo virtual exclusiva e Copy & SEO por produto.',
+  proof: 'Portfólio com antes e depois.',
+  availableAssets: 'Site e Instagram.',
+  restrictions: 'Não prometer aumento garantido de vendas.',
+});
+
+if (groundingProbe.offer.promise !== 'Transforme fotos simples em um catálogo profissional.') throw new Error('Promise não foi ancorada na oferta.');
+if (groundingProbe.offer.mechanism !== 'Modelo virtual exclusiva e Copy & SEO por produto.') throw new Error('Mecanismo não foi ancorado no diferencial.');
+if (!groundingProbe.offer.guarantee.includes('Nenhuma garantia')) throw new Error('Guardrail de garantia falhou.');
+if (groundingProbe.risks[0].includes('15 minutos')) throw new Error('Guardrail de limite operacional inventado falhou.');
 
 const strategy = {
   verdict: 'APROVAR', verdictReason: 'ok', executiveSummary: 'Resumo',
