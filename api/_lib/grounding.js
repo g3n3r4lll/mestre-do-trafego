@@ -35,11 +35,20 @@ function sanitizeUnsupportedServiceSpeed(value, input) {
     input.restrictions,
   ].map(asText).join(' ');
   const hasDeclaredSpeed = /\b(?:atendimento|resposta|retorno)\s+(?:r[aá]pid[oa]s?|imediat[oa]s?)\b/i.test(declared);
-  if (hasDeclaredSpeed) return value;
+  const hasDeclaredHighConversion = /\balta\s+convers[aã]o\b/i.test(declared);
 
   const sanitize = (item) => {
     if (typeof item === 'string') {
-      return item.replace(/\b(atendimento|resposta|retorno)\s+(?:r[aá]pid[oa]s?|imediat[oa]s?)\b/gi, '$1');
+      let text = item;
+      if (!hasDeclaredSpeed) {
+        text = text.replace(/\b(atendimento|resposta|retorno)\s+(?:r[aá]pid[oa]s?|imediat[oa]s?)\b/gi, '$1');
+      }
+      if (!hasDeclaredHighConversion) {
+        text = text
+          .replace(/\s+de\s+alta\s+convers[aã]o\b/gi, '')
+          .replace(/\balta\s+convers[aã]o\b/gi, 'conversão a validar');
+      }
+      return text;
     }
     if (Array.isArray(item)) return item.map(sanitize);
     if (item && typeof item === 'object') {
