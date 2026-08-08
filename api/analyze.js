@@ -2,6 +2,7 @@ import { requireAuth } from './_lib/auth.js';
 import { callGemini, extractText, GeminiApiError } from './_lib/gemini.js';
 import { strategyJsonSchema } from './_lib/schema.js';
 import { buildStrategyPrompt } from './_lib/prompt.js';
+import { groundStrategy } from './_lib/grounding.js';
 import { calculateFinancials } from '../shared/finance.js';
 
 const verdictRank = { BLOQUEAR: 0, TESTAR: 1, APROVAR: 2 };
@@ -93,7 +94,7 @@ export default async function handler(req, res) {
       model: process.env.GEMINI_TEXT_MODEL || 'gemini-3.6-flash',
       prompt: buildStrategyPrompt(input, financials),
     });
-    const strategy = parseStrategy(extractText(payload));
+    const strategy = groundStrategy(parseStrategy(extractText(payload)), input);
     if (!strategy.verdict || verdictRank[strategy.verdict] > verdictRank[financials.deterministicVerdict]) {
       strategy.verdict = financials.deterministicVerdict;
       strategy.verdictReason = financials.deterministicReason;
