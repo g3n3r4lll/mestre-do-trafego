@@ -12,6 +12,8 @@ const groundingProbe = groundStrategy({
     guarantee: 'Sem fidelidade e com demonstração prévia',
   },
   risks: ['Se o atendimento demorar mais de 15 minutos, o CPA subirá.'],
+  ads: [{ description: 'Atendimento rápido pelo WhatsApp' }],
+  landingOrWhatsApp: { followUp: ['Retorno imediato aos leads interessados.'] },
 }, {
   product: 'Plano Growth da Modelize AI',
   offer: 'Transforme fotos simples em um catálogo profissional. Primeiro mês por R$ 449,00.',
@@ -25,6 +27,8 @@ if (groundingProbe.offer.promise !== 'Transforme fotos simples em um catálogo p
 if (groundingProbe.offer.mechanism !== 'Modelo virtual exclusiva e Copy & SEO por produto.') throw new Error('Mecanismo não foi ancorado no diferencial.');
 if (!groundingProbe.offer.guarantee.includes('Nenhuma garantia')) throw new Error('Guardrail de garantia falhou.');
 if (groundingProbe.risks[0].includes('15 minutos')) throw new Error('Guardrail de limite operacional inventado falhou.');
+if (groundingProbe.ads[0].description !== 'Atendimento pelo WhatsApp') throw new Error('Guardrail de velocidade de atendimento falhou.');
+if (groundingProbe.landingOrWhatsApp.followUp[0] !== 'Retorno aos leads interessados.') throw new Error('Guardrail de velocidade de follow-up falhou.');
 
 const strategy = {
   verdict: 'APROVAR', verdictReason: 'ok', executiveSummary: 'Resumo',
@@ -70,16 +74,22 @@ if (resultResponse.statusCode !== 200) throw new Error(JSON.stringify(resultResp
 if (resultResponse.payload.financials.deterministicVerdict !== 'TESTAR') throw new Error('Veredito financeiro inesperado.');
 if (resultResponse.payload.strategy.verdict !== 'TESTAR') throw new Error('A estratégia ultrapassou o limite financeiro.');
 
-global.fetch = async () => ({
-  ok: true, status: 200,
-  json: async () => ({ candidates: [{ content: { parts: [{ inlineData: { data: 'aGVsbG8=', mimeType: 'image/png' } }] } }] }),
-});
+let imageRequestBody;
+global.fetch = async (_url, options) => {
+  imageRequestBody = JSON.parse(options.body);
+  return {
+    ok: true, status: 200,
+    json: async () => ({ candidates: [{ content: { parts: [{ inlineData: { data: 'aGVsbG8=', mimeType: 'image/png' } }] } }] }),
+  };
+};
 
 const imageResponse = responseMock();
 await generateImage({
   method: 'POST', headers: {},
   body: { prompt: 'Create a professional ecommerce advertising image without text and with premium lighting.' },
 }, imageResponse);
+
+if (imageRequestBody?.response_format?.mime_type !== 'image/jpeg') throw new Error('Formato de imagem solicitado ao Gemini deve ser JPEG.');
 
 if (imageResponse.statusCode !== 200 || !imageResponse.payload.dataUrl?.startsWith('data:image/png;base64,')) {
   throw new Error('Falha no teste do contrato de imagem.');
