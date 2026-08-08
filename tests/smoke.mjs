@@ -1,9 +1,14 @@
-import analyze from '../api/analyze.js';
+import analyze, { parseStrategy } from '../api/analyze.js';
 import generateImage from '../api/generate-image.js';
 import { groundStrategy } from '../api/_lib/grounding.js';
 
 process.env.GEMINI_API_KEY = 'test-key';
 delete process.env.APP_PASSWORD;
+
+const repairedStrategy = parseStrategy(`{\n  \"campaign\": {\"name\": \"teste\",},\n  \"offer\": {guarantee: \"não informado\",},\n}`);
+if (repairedStrategy.campaign.name !== 'teste' || repairedStrategy.offer.guarantee !== 'não informado') {
+  throw new Error('Reparo de JSON quase válido falhou.');
+}
 
 const groundingProbe = groundStrategy({
   offer: {
