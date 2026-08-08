@@ -16,7 +16,7 @@ export default async function handler(req, res) {
       apiKey,
       model: process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image',
       prompt,
-      responseFormat: { type: 'image', mime_type: 'image/png', aspect_ratio: '1:1' },
+      responseFormat: { type: 'image', mime_type: 'image/jpeg', aspect_ratio: '1:1' },
       fallbackModels: ['gemini-3.1-flash-image', 'gemini-3.1-flash-lite-image'],
     });
     const image = extractImage(payload);
